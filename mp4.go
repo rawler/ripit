@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
 )
 
 var MP4Endian = binary.BigEndian
@@ -49,6 +50,34 @@ func (h MP4BoxHeader) PayloadSize() int64 {
 func ParseBoxHeader(r io.Reader) (res MP4BoxHeader, err error) {
 	err = Read(r, &res)
 	return res, err
+}
+
+// ScanBoxes is a function scanning the inside of an MP4 Box, for inner boxes.
+// Boxes are given to f(header, payload) for inspection, which can yield io.EOF for simply done, or some other error which will simply propagate
+func ScanBoxes(r io.Reader, f func(header MP4BoxHeader, payload io.Reader) error) error {
+	for {
+		header, err := ParseBoxHeader(r)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("Header Parse Error: %s", err)
+		}
+
+		payload := io.LimitReader(r, header.PayloadSize())
+		err = f(header, payload)
+
+		// Silently discard remaining inner box, including read errors.
+		// They will either have existed in f(), or be detected again in next Header read.
+		io.Copy(ioutil.Discard, payload)
+
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
 }
 
 type FullBox struct {

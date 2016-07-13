@@ -1,3 +1,5 @@
 - Only MP4 file format version 2 supported
 - The code is designed with as few assumptions as possible. (For example regarding Box order). That said, due to the complexity of the specification, there is no guarantee all possible streams can be handled.
+- Will not handle HUGE files gracefully. (Stores some tables in RAM)
+- Does not detect type of Audio. Simply outputs all audio-samples in sequence
 - Not designed to work as a library. No separation between public and private methods (yet)

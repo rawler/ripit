@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/hex"
 	"io"
-	"io/ioutil"
 	"log"
 )
 
@@ -59,18 +58,9 @@ func DumpUnknown(r io.Reader, o OutputContext) {
 
 func DumpBox(r io.Reader, o OutputContext) {
 	nested := o.Nested()
-	for {
-		h, err := ParseBoxHeader(r)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatalf("Header Parse Error: %s", err)
-		}
-
+	err := ScanBoxes(r, func(h MP4BoxHeader, payload io.Reader) error {
 		o.Logf("Box Type: %s, Size: %d", string(h.FourCC[:]), h.Size)
 
-		payload := io.LimitReader(r, h.PayloadSize())
 		switch h.FourCC {
 		case FOURCC_MOOV, FOURCC_TRAK, FOURCC_MDIA, FOURCC_MINF:
 			DumpBox(payload, nested)
@@ -89,10 +79,9 @@ func DumpBox(r io.Reader, o OutputContext) {
 		default:
 			DumpUnknown(payload, nested)
 		}
-
-		_, err = io.Copy(ioutil.Discard, payload)
-		if err != nil && err != io.EOF {
-			log.Fatalf("Payload Consumption Error: %s", err)
-		}
+		return nil
+	})
+	if err != nil {
+		log.Fatalf("Failed scanning in box: %s", err)
 	}
 }
