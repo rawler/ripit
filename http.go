@@ -45,21 +45,28 @@ func GetRange(url string, offset int64) (*http.Response, error) {
 }
 
 type httpSeekReader struct {
-	url  string
-	resp *http.Response
+	url    string
+	resp   *http.Response
+	offset int64
 }
 
 func (r *httpSeekReader) Seek(offset int64, whence int) (pos int64, err error) {
+	if r.offset == offset {
+		return offset, err
+	}
 	if whence != os.SEEK_SET {
 		return 0, ErrWhenceUnsupported
 	}
+	r.offset = offset
 	r.resp.Body.Close()
 	r.resp, err = GetRange(r.url, offset)
 	return offset, err
 }
 
 func (r *httpSeekReader) Read(p []byte) (n int, err error) {
-	return r.resp.Body.Read(p)
+	n, err = r.resp.Body.Read(p)
+	r.offset += int64(n)
+	return n, err
 }
 
 func HTTPSeekReader(url string) (*httpSeekReader, error) {
