@@ -85,10 +85,22 @@ type FullBox struct {
 	Flags   [3]byte
 }
 
+type TrackType [4]byte
+
+var (
+	TrackTypeSound = TrackType{'s', 'o', 'u', 'n'}
+	TrackTypeVideo = TrackType{'v', 'i', 'd', 'e'}
+	TrackTypeHint  = TrackType{'h', 'i', 'n', 't'}
+)
+
+func (t TrackType) String() string {
+	return string(t[:])
+}
+
 type HandlerBox struct {
 	FullBox
 	Predefined  uint32
-	HandlerType [4]byte
+	HandlerType TrackType
 	Reserved    [3]uint32
 }
 
@@ -113,11 +125,22 @@ type SampleSizeTable struct {
 	Entries []uint32
 }
 
-func (t SampleSizeTable) SampleSize(n uint32) uint32 {
+func (t SampleSizeTable) SampleSize(n int) uint32 {
 	if t.ConstantSize != 0 {
 		return t.ConstantSize
 	}
 	return t.Entries[n]
+}
+
+func (t SampleSizeTable) SampleSizes(n int, count int) uint64 {
+	if t.ConstantSize != 0 {
+		return uint64(t.ConstantSize) * uint64(count)
+	}
+	res := uint64(0)
+	for i := n; i < (n + count); i++ {
+		res += uint64(t.SampleSize(i))
+	}
+	return res
 }
 
 func ParseSampleSizeBox(r io.Reader) (res SampleSizeTable, err error) {
@@ -149,9 +172,17 @@ func ParseSampleToChunkBox(r io.Reader) (res SampleToChunkTable, err error) {
 	return res, Read(r, res.Entries)
 }
 
+func (t SampleToChunkTable) ChunkSamples(chunkIndex int) int {
+	tableIndex := len(t.Entries) - 1
+	limit := uint32(chunkIndex + 1)
+	for ; t.Entries[tableIndex].FirstChunk > limit; tableIndex-- {
+	}
+	return int(t.Entries[tableIndex].SamplesPerChunk)
+}
+
 type ChunkOffsetTable interface {
 	Count() int
-	Offset(n uint32) uint64
+	Offset(n int) uint64
 }
 
 type ChunkOffset32Table struct {
@@ -161,7 +192,7 @@ type ChunkOffset32Table struct {
 func (t ChunkOffset32Table) Count() int {
 	return len(t.Entries)
 }
-func (t ChunkOffset32Table) Offset(n uint32) uint64 {
+func (t ChunkOffset32Table) Offset(n int) uint64 {
 	return uint64(t.Entries[n])
 }
 
@@ -172,7 +203,7 @@ type ChunkOffset64Table struct {
 func (t ChunkOffset64Table) Count() int {
 	return len(t.Entries)
 }
-func (t ChunkOffset64Table) Offset(n uint32) uint64 {
+func (t ChunkOffset64Table) Offset(n int) uint64 {
 	return t.Entries[n]
 }
 

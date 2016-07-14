@@ -1,5 +1,7 @@
 package main
 
+// Code to dump Box structure of an MP4
+
 import (
 	"encoding/hex"
 	"io"
