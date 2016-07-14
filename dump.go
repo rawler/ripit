@@ -19,34 +19,26 @@ func (c OutputContext) Nested() OutputContext {
 
 func DumpHandler(r io.Reader, o OutputContext) {
 	h, err := ParseHandler(r)
-	if err != nil {
-		log.Fatalf("Handler Read Error: %s", err)
-	}
+	AssertOK(err, "Handler Read Error")
 
 	o.Logf("Format: %s", string(h.HandlerType[:]))
 }
 
 func DumpSampleToChunks(r io.Reader, o OutputContext) {
 	t, err := ParseSampleToChunkBox(r)
-	if err != nil {
-		log.Fatalf("SampleToChunks Read Error: %s", err)
-	}
+	AssertOK(err, "SampleToChunks Read Error")
 	o.Logf("Table of %d entries", t.EntryCount)
 }
 
 func DumpChunkOffsets(r io.Reader, fourCC FourCC, o OutputContext) {
 	t, err := ParseChunkOffsetBox(r, fourCC)
-	if err != nil {
-		log.Fatalf("ChunkOffset Read Error: %s", err)
-	}
+	AssertOK(err, "ChunkOffset Read Error")
 	o.Logf("Table of %d entries", t.Count())
 }
 
 func DumpSampleSizes(r io.Reader, o OutputContext) {
 	t, err := ParseSampleSizeBox(r)
-	if err != nil {
-		log.Fatalf("SampleSize Read Error: %s", err)
-	}
+	AssertOK(err, "SampleSize Read Error")
 	o.Logf("Table of %d entries", t.EntryCount)
 }
 
@@ -81,7 +73,5 @@ func DumpBox(r io.Reader, o OutputContext) {
 		}
 		return nil
 	})
-	if err != nil {
-		log.Fatalf("Failed scanning in box: %s", err)
-	}
+	AssertOK(err, "Failed scanning in box")
 }
