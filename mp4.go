@@ -151,7 +151,9 @@ func ParseSampleSizeBox(r io.Reader) (res SampleSizeTable, err error) {
 	if err != nil {
 		return res, err
 	}
-	res.Entries = make([]uint32, res.EntryCount)
+	if res.ConstantSize == 0 {
+		res.Entries = make([]uint32, res.EntryCount)
+	}
 	return res, Read(r, res.Entries)
 }
 
