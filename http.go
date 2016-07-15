@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -44,26 +45,45 @@ func GetRange(url string, offset int64) (*http.Response, error) {
 	}
 }
 
+// httpSeekReader is a simple SeekReader implementation allowing a HTTPClient to Seek in file,
+// transparently issuing new RangeRequests when needed
 type httpSeekReader struct {
-	url    string
-	resp   *http.Response
-	offset int64
+	url           string
+	resp          *http.Response
+	offset        int64
+	contentLength int64
 }
 
 func (r *httpSeekReader) Seek(offset int64, whence int) (pos int64, err error) {
-	if r.offset == offset {
-		return offset, err
-	}
-	if whence != os.SEEK_SET {
+	switch whence {
+	case os.SEEK_SET:
+		// All OK
+	case os.SEEK_CUR:
+		offset = r.offset + offset
+	default:
 		return 0, ErrWhenceUnsupported
 	}
+
+	if r.offset == offset {
+		return offset, nil
+	}
 	r.offset = offset
-	r.resp.Body.Close()
-	r.resp, err = GetRange(r.url, offset)
+	if r.resp != nil {
+		r.resp.Body.Close()
+	}
+	if r.offset < r.contentLength {
+		r.resp, err = GetRange(r.url, offset)
+	} else {
+		r.resp = nil
+	}
 	return offset, err
 }
 
 func (r *httpSeekReader) Read(p []byte) (n int, err error) {
+	// Did seek beyond EOF
+	if r.resp == nil {
+		return 0, io.EOF
+	}
 	n, err = r.resp.Body.Read(p)
 	r.offset += int64(n)
 	return n, err
@@ -74,5 +94,9 @@ func HTTPSeekReader(url string) (*httpSeekReader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &httpSeekReader{resp: resp, url: url}, nil
+	return &httpSeekReader{
+		resp:          resp,
+		url:           url,
+		contentLength: resp.ContentLength,
+	}, nil
 }

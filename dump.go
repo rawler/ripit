@@ -50,9 +50,9 @@ func DumpUnknown(r io.Reader, o OutputContext) {
 	o.Logf("Data:\n%s", hex.Dump(dump[0:count]))
 }
 
-func DumpBox(r io.Reader, o OutputContext) {
+func DumpBox(r io.ReadSeeker, o OutputContext) {
 	nested := o.Nested()
-	err := ScanBoxes(r, func(h MP4BoxHeader, payload io.Reader) error {
+	err := ScanBoxes(r, func(h MP4BoxHeader, payload io.ReadSeeker) error {
 		o.Logf("Box Type: %s, Size: %d", string(h.FourCC[:]), h.Size)
 
 		switch h.FourCC {

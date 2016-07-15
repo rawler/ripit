@@ -32,8 +32,8 @@ func (t MediaTrack) Read(r io.ReadSeeker, tgt io.Writer) error {
 	return nil
 }
 
-func extractTrack(r io.Reader, track *MediaTrack) error {
-	return ScanBoxes(r, func(h MP4BoxHeader, payload io.Reader) error {
+func extractTrack(r io.ReadSeeker, track *MediaTrack) error {
+	return ScanBoxes(r, func(h MP4BoxHeader, payload io.ReadSeeker) error {
 		var err error
 		switch h.FourCC {
 		case FOURCC_MINF, FOURCC_STBL, FOURCC_MDIA:
@@ -53,8 +53,8 @@ func extractTrack(r io.Reader, track *MediaTrack) error {
 	})
 }
 
-func AudioTracksFromFile(r io.Reader) (tracks []MediaTrack, err error) {
-	err = ScanBoxes(r, func(h MP4BoxHeader, payload io.Reader) error {
+func AudioTracksFromFile(r io.ReadSeeker) (tracks []MediaTrack, err error) {
+	err = ScanBoxes(r, func(h MP4BoxHeader, payload io.ReadSeeker) error {
 		var err error
 		switch h.FourCC {
 		case FOURCC_MOOV:
