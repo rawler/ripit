@@ -7,8 +7,13 @@ import (
 	"regexp"
 )
 
+var DesiredTypes = []FourCC{
+	{'m', 'p', '4', 'a'},
+}
+
 type MediaTrack struct {
 	handlerType TrackType
+	description SampleDescriptionBox
 	sizes       SampleSizeTable
 	chunkMap    SampleToChunkTable
 	offsets     ChunkOffsetTable
@@ -42,6 +47,8 @@ func extractTrack(r io.ReadSeeker, track *MediaTrack) error {
 			var hdlr HandlerBox
 			hdlr, err = ParseHandler(payload)
 			track.handlerType = hdlr.HandlerType
+		case FOURCC_STSD:
+			track.description, err = ParseSampleDescriptionBox(payload)
 		case FOURCC_STSZ:
 			track.sizes, err = ParseSampleSizeBox(payload)
 		case FOURCC_STSC:
@@ -53,16 +60,16 @@ func extractTrack(r io.ReadSeeker, track *MediaTrack) error {
 	})
 }
 
-func AudioTracksFromFile(r io.ReadSeeker) (tracks []MediaTrack, err error) {
+func AudioTracksFromFile(r io.ReadSeeker, t []FourCC) (tracks []MediaTrack, err error) {
 	err = ScanBoxes(r, func(h MP4BoxHeader, payload io.ReadSeeker) error {
 		var err error
 		switch h.FourCC {
 		case FOURCC_MOOV:
-			tracks, err = AudioTracksFromFile(payload) // Flatten exactly-once-hierarchy
+			tracks, err = AudioTracksFromFile(payload, t) // Flatten exactly-once-hierarchy
 		case FOURCC_TRAK:
 			var track MediaTrack
 			err = extractTrack(payload, &track)
-			if track.handlerType == TrackTypeSound {
+			if track.handlerType == TrackTypeSound && track.description.MatchesTypes(t) {
 				tracks = append(tracks, track)
 			}
 		}
@@ -96,7 +103,7 @@ func main() {
 	r, err := Open(os.Args[1])
 	AssertOK(err, "Error on open")
 
-	tracks, err := AudioTracksFromFile(r)
+	tracks, err := AudioTracksFromFile(r, DesiredTypes)
 	AssertOK(err, "Failed to scan AudioTracks from MOOV")
 	log.Printf("%d tracks", len(tracks))
 

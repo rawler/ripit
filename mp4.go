@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 )
 
 var MP4Endian = binary.BigEndian
@@ -25,6 +27,7 @@ var (
 	FOURCC_STBL = FourCC{'s', 't', 'b', 'l'}
 	FOURCC_STCO = FourCC{'s', 't', 'c', 'o'}
 	FOURCC_STSC = FourCC{'s', 't', 's', 'c'}
+	FOURCC_STSD = FourCC{'s', 't', 's', 'd'}
 	FOURCC_STSZ = FourCC{'s', 't', 's', 'z'}
 	FOURCC_STTS = FourCC{'s', 't', 't', 's'}
 	FOURCC_STZ2 = FourCC{'s', 't', 'z', '2'}
@@ -51,8 +54,10 @@ func ParseBoxHeader(r io.Reader) (res MP4BoxHeader, err error) {
 	return res, err
 }
 
-// ScanBoxes is a function scanning the inside of an MP4 Box, for inner boxes.
-// Boxes are given to f(header, payload) for inspection, which can yield io.EOF for simply done, or some other error which will simply propagate
+// ScanBoxes scans the inside of an MP4 Box, for inner boxes.
+//
+// Boxes are given to f(header, payload) for inspection, which can yield io.EOF to end
+// iteration, or some other error which will simply propagate up
 func ScanBoxes(r io.ReadSeeker, f func(header MP4BoxHeader, payload io.ReadSeeker) error) error {
 	for {
 		header, err := ParseBoxHeader(r)
@@ -88,7 +93,7 @@ type FullBox struct {
 	Flags   [3]byte
 }
 
-type TrackType [4]byte
+type TrackType FourCC
 
 var (
 	TrackTypeSound = TrackType{'s', 'o', 'u', 'n'}
@@ -115,6 +120,45 @@ func ParseHandler(r io.Reader) (res HandlerBox, err error) {
 type SimpleTableHeader struct {
 	FullBox
 	EntryCount uint32
+}
+
+type SampleDescriptionBox struct {
+	SimpleTableHeader
+	Entries []MP4BoxHeader // Highly simplified
+}
+
+func (sd SampleDescriptionBox) MatchesTypes(t []FourCC) bool {
+	for _, entry := range sd.Entries {
+		for _, m := range t {
+			if entry.FourCC == m {
+				return true
+			}
+		}
+		log.Printf("Track of wrong type: %s", entry.FourCC)
+	}
+	return false
+}
+
+func ParseSampleDescriptionBox(r io.Reader) (res SampleDescriptionBox, err error) {
+	err = Read(r, &res.SimpleTableHeader)
+	if err != nil {
+		return res, err
+	}
+
+	for {
+		header, err := ParseBoxHeader(r)
+		if err == io.EOF {
+			return res, nil
+		}
+		if err != nil {
+			return res, err
+		}
+		res.Entries = append(res.Entries, header)
+		_, err = io.CopyN(ioutil.Discard, r, header.PayloadSize())
+		if err != nil {
+			return res, err
+		}
+	}
 }
 
 type SampleSizeTableHeader struct {
@@ -185,6 +229,7 @@ func (t SampleToChunkTable) ChunkSamples(chunkIndex int) int {
 	return int(t.Entries[tableIndex].SamplesPerChunk)
 }
 
+// ChunkOffsetTable is a unifying interface for the two versions
 type ChunkOffsetTable interface {
 	Count() int
 	Offset(n int) uint64
