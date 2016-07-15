@@ -3,3 +3,4 @@
 - Will not handle HUGE files gracefully. (Stores some tables in RAM)
 - Does not detect type of Audio. Simply outputs all audio-samples in sequence
 - Not designed to work as a library. No separation between public and private methods (yet)
+- No fallback for non-Range supporting HTTP servers

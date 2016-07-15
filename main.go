@@ -1,13 +1,11 @@
 package main
 
 import (
-	"errors"
 	"io"
 	"log"
 	"os"
+	"regexp"
 )
-
-var ErrMoovNotFound = errors.New("Moov-box (~Table of Contents) not found")
 
 type MediaTrack struct {
 	handlerType TrackType
@@ -81,19 +79,28 @@ func AssertOK(err error, format string, args ...interface{}) {
 	log.Fatalf(format+": %s", args...)
 }
 
+var urlRegex = regexp.MustCompile("^[a-z0-9]+://.*$")
+
+func Open(url string) (io.ReadSeeker, error) {
+	if urlRegex.MatchString(url) {
+		return HTTPSeekReader(url)
+	}
+	return os.Open(url)
+}
+
 func main() {
 	if len(os.Args) == 1 {
 		log.Fatalf("Usage: %s <fname>", os.Args[0])
 	}
 
-	f, err := os.Open(os.Args[1])
+	r, err := Open(os.Args[1])
 	AssertOK(err, "Error on open")
 
-	tracks, err := AudioTracksFromFile(f)
+	tracks, err := AudioTracksFromFile(r)
 	AssertOK(err, "Failed to scan AudioTracks from MOOV")
 	log.Printf("%d tracks", len(tracks))
 
 	for i, track := range tracks {
-		AssertOK(track.Read(f, os.Stdout), "Failed to Read track %d", i)
+		AssertOK(track.Read(r, os.Stdout), "Failed to Read track %d", i)
 	}
 }
