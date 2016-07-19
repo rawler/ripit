@@ -103,9 +103,13 @@ func main() {
 
 	tracks, err := AudioTracksFromFile(r, DesiredTypes)
 	AssertOK(err, "Failed to scan AudioTracks from MOOV")
-	log.Printf("%d tracks", len(tracks))
 
-	for i, track := range tracks {
-		AssertOK(track.CopySamples(r, os.Stdout), "Failed to Read track %d", i)
+	log.Printf("Found %d tracks", len(tracks))
+	if len(tracks) == 0 {
+		return
 	}
+	if len(tracks) > 1 {
+		log.Printf("Warning: Only ripping the first...")
+	}
+	AssertOK(tracks[0].CopySamples(r, os.Stdout), "Failed to Read first track")
 }
