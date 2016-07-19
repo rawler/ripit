@@ -24,7 +24,9 @@ func (e httpError) Error() string {
 
 func GetRange(url string, offset int64) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
-	AssertOK(err, "Failed to instantiate a Request for %s", url)
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-", offset))
 
 	resp, err := http.DefaultClient.Do(req)

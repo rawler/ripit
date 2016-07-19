@@ -38,10 +38,11 @@ Fairly simple. See main.go for the code. Basically;
 ---------
 Unused. Initially developed to test MP4-parsing. Left since helpful to debug new files
 
-Limitations
-===========
-  - Only MP4 file format version 2 supported
+Limitations / TODO
+==================
+  - Only parts of ISO base media file format supported (as described at http://l.web.umkc.edu/lizhu/teaching/2016sp.video-communication/ref/mp4.pdf)
   - The code is designed with as few assumptions as possible. (For example regarding Box order). That said, due to the complexity of the specification, there is no guarantee all possible streams can be handled.
   - Will not handle HUGE files gracefully. (Stores some tables in RAM)
   - Not designed to work as a library. No separation between public and private methods (yet)
   - No fallback for non-Range supporting HTTP servers
+  - Currently wastes a good bit of bandwidth over HTTP. Could be severely optimized.

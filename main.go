@@ -19,7 +19,7 @@ type MediaTrack struct {
 	offsets     ChunkOffsetTable
 }
 
-func (t MediaTrack) Read(r io.ReadSeeker, tgt io.Writer) error {
+func (t MediaTrack) CopySamples(r io.ReadSeeker, tgt io.Writer) error {
 	sampleIndex := 0
 	for chunkIndex := 0; chunkIndex < t.offsets.Count(); chunkIndex++ {
 		samples := t.chunkMap.ChunkSamples(chunkIndex)
@@ -86,10 +86,8 @@ func AssertOK(err error, format string, args ...interface{}) {
 	log.Fatalf(format+": %s", args...)
 }
 
-var urlRegex = regexp.MustCompile("^[a-z0-9]+://.*$")
-
 func Open(url string) (io.ReadSeeker, error) {
-	if urlRegex.MatchString(url) {
+	if regexp.MustCompile("^[a-z0-9]+://.*$").MatchString(url) {
 		return HTTPSeekReader(url)
 	}
 	return os.Open(url)
@@ -108,6 +106,6 @@ func main() {
 	log.Printf("%d tracks", len(tracks))
 
 	for i, track := range tracks {
-		AssertOK(track.Read(r, os.Stdout), "Failed to Read track %d", i)
+		AssertOK(track.CopySamples(r, os.Stdout), "Failed to Read track %d", i)
 	}
 }

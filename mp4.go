@@ -87,8 +87,10 @@ func ScanBoxes(r io.ReadSeeker, f func(header MP4BoxHeader, payload io.ReadSeeke
 		err = f(header, payload)
 
 		// Silently skip remaining inner box.
-		pos, merr := payload.Seek(0, SEEK_END)
-		AssertOK(merr, "Seek To end of Box (%d) failed", pos)
+		pos, err := payload.Seek(0, SEEK_END)
+		if err != nil {
+			fmt.Errorf("Seek To end of Box (%d) failed: %s", pos, err)
+		}
 
 		if err == io.EOF {
 			return nil
@@ -172,15 +174,15 @@ func ParseSampleDescriptionBox(r io.Reader) (res SampleDescriptionBox, err error
 	}
 }
 
+type SampleSizeTable struct {
+	SampleSizeTableHeader
+	Entries []uint32
+}
+
 type SampleSizeTableHeader struct {
 	FullBox
 	ConstantSize uint32
 	EntryCount   uint32
-}
-
-type SampleSizeTable struct {
-	SampleSizeTableHeader
-	Entries []uint32
 }
 
 func (t SampleSizeTable) SampleSize(n int) uint32 {
@@ -212,15 +214,15 @@ func ParseSampleSizeBox(r io.Reader) (res SampleSizeTable, err error) {
 	return res, Read(r, res.Entries)
 }
 
+type SampleToChunkTable struct {
+	SimpleTableHeader
+	Entries []SampleToChunkEntry
+}
+
 type SampleToChunkEntry struct {
 	FirstChunk             uint32
 	SamplesPerChunk        uint32
 	SampleDescriptionIndex uint32
-}
-
-type SampleToChunkTable struct {
-	SimpleTableHeader
-	Entries []SampleToChunkEntry
 }
 
 func ParseSampleToChunkBox(r io.Reader) (res SampleToChunkTable, err error) {
