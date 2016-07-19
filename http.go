@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -64,18 +65,26 @@ func (r *httpSeekReader) Seek(offset int64, whence int) (pos int64, err error) {
 		return 0, ErrWhenceUnsupported
 	}
 
-	if r.offset == offset {
+	jump := offset - r.offset
+	if jump == 0 {
 		return offset, nil
 	}
-	r.offset = offset
-	if r.resp != nil {
-		r.resp.Body.Close()
-	}
-	if r.offset < r.contentLength {
-		r.resp, err = GetRange(r.url, offset)
+
+	if jump > 0 && jump < 1000 {
+		// Optimization for small jumps, probably faster to just skip ahead
+		_, err = io.CopyN(ioutil.Discard, r.resp.Body, jump)
 	} else {
-		r.resp = nil
+		if r.resp != nil {
+			r.resp.Body.Close()
+		}
+		if offset < r.contentLength {
+			r.resp, err = GetRange(r.url, offset)
+		} else {
+			// Enter EOF state
+			r.resp = nil
+		}
 	}
+	r.offset = offset
 	return offset, err
 }
 
