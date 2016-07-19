@@ -39,7 +39,7 @@ func (x FourCC) String() string {
 }
 
 type MP4BoxHeader struct {
-	Size   uint32
+	Size   uint64
 	FourCC FourCC
 }
 
@@ -50,7 +50,18 @@ func (h MP4BoxHeader) PayloadSize() int64 {
 }
 
 func ParseBoxHeader(r io.Reader) (res MP4BoxHeader, err error) {
-	err = Read(r, &res)
+	var simpleSize uint32
+	if err = Read(r, &simpleSize); err != nil {
+		return res, err
+	}
+	if err = Read(r, &res.FourCC); err != nil {
+		return res, err
+	}
+	if simpleSize == 1 {
+		err = Read(r, &res.Size)
+	} else {
+		res.Size = uint64(simpleSize)
+	}
 	return res, err
 }
 
